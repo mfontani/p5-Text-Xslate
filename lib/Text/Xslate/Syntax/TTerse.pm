@@ -69,6 +69,7 @@ sub init_symbols {
     $parser->symbol('MACRO') ->set_std(\&std_macro);
     $parser->symbol('BLOCK');
     $parser->symbol('WRAPPER')->set_std(\&std_wrapper);
+    $parser->symbol('CASCADE')->set_std(\&std_cascade);
     $parser->symbol('INTO');
 
     $parser->symbol('FILTER')->set_std(\&std_filter);
@@ -496,6 +497,39 @@ sub std_macro {
     return $proc;
 }
 
+# CASCADE ["foo.tt"][WITH "bar.tt"[, "baz.tt"]]
+# is
+# : cascade [foo][with bar[, baz]];
+# Blatant rip-off of ::Parser's std_cascade, with uc(WITH)
+sub std_cascade {
+    my($parser, $symbol) = @_;
+
+    my $base;
+    if($parser->token->id ne "WITH") {
+        $base = $parser->barename();
+    }
+
+    my $components;
+    if($parser->token->id eq "WITH") {
+        $parser->advance(); # "with"
+
+        my @c = $parser->barename();
+        while($parser->token->id eq ",") {
+            $parser->advance(); # ","
+            push @c, $parser->barename();
+        }
+        $components = \@c;
+    }
+
+    my $vars = $parser->localize_vars();
+    my $stmt = $symbol->clone(
+        arity  => 'cascade',
+        first  => $base,
+        second => $components,
+        third  => $vars,
+    );
+    return $parser->finish_statement($stmt);
+}
 
 # WRAPPER "foo.tt" ...  END
 # is
