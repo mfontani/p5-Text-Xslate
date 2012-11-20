@@ -10,3 +10,7 @@
 : block baz -> {
     This is <baz>!
 : }
+
+: macro em -> $arg {
+<em><: $arg :></em>
+: }
